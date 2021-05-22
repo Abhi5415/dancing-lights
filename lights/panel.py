@@ -6,8 +6,8 @@ from cfg import strip
 class Panel:
     brightness = 0  # range from 0 to 255
     color = (0, 0, 0)  # RGB tuple
-    colorShiftRate = 0.1  # percentage per millisecond
-    brightnessShiftRate = 0.1
+    colorShiftRate = 0.01  # percentage per millisecond
+    brightnessShiftRate = 0.001
     deadzone = 5
 
     def __init__(self, panelLocation: list) -> None:
@@ -19,20 +19,31 @@ class Panel:
         self.update()
 
     def update(self):
-        newColor = [0, 0, 0]
-        while True:
+        newColor = list(self.color)
+        increment = [
+            abs(self.color[i] - self.targetColor[i]) * self.colorShiftRate
+            for i in range(3)
+        ]
+        for x in range(int(1 / self.colorShiftRate)):
             for i in range(3):
-                if self.color[i] < self.targetColor[i]:
-                    newColor[i] += (
-                        abs(self.color[i] - self.targetColor[i]) * self.colorShiftRate
-                    )
-                else:
-                    newColor[i] -= (
-                        abs(self.color[i] - self.targetColor[i]) * self.colorShiftRate
-                    )
+                if (
+                    not self.targetColor[i] - self.deadzone
+                    < newColor[i]
+                    < self.targetColor[i] + self.deadzone
+                ):
+                    if newColor[i] < self.targetColor[i]:
+                        newColor[i] += increment[i]
+                    else:
+                        newColor[i] -= increment[i]
             for i in range(self.panelLocation[0], self.panelLocation[1]):
-                r, g, b = newColor
+                r, g, b = map(int, newColor)
                 strip.setPixelColor(i, Color(r, g, b))
-                time.sleep(0.001)
+            strip.show()
+            # print(r, g, b)
+            time.sleep(0.01)
+        for i in range(self.panelLocation[0], self.panelLocation[1]):
+            r, g, b = map(int, self.targetColor)
 
-        self.color = newColor
+            strip.setPixelColor(i, Color(r, g, b))
+        strip.show()
+        self.color = tuple(self.targetColor)
