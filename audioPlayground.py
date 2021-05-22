@@ -9,10 +9,11 @@ from scipy.fftpack import fft
 import matplotlib.pyplot as plt
 from scipy.fftpack import fft
 from scipy.io import wavfile  # get the api
-from statistics import mean
+from statistics import mean, stdev
 import numpy as np
 import os
 import atexit
+import time
 
 
 CHUNK_SIZE = 1024
@@ -21,6 +22,9 @@ POLYNOMIAL = 8
 SAMPLE_FORMAT = pyaudio.paInt16
 MIN_FREQUENCY = 20
 MAX_FREQUENCY = 15000
+MUSIC_START_THRESHOLD = 2
+MUSIC_END_THRESHOLD = 2
+ON_OFF_THRESHOLD = 30
 
 channels = 1
 fs = 44100  # Record at 44100 samples per second
@@ -39,10 +43,9 @@ stream = p.open(
 )
 
 
-def display(data):
-    os.system("clear")
-    print(data)
-    for i in data:
+def display(values):
+
+    for i in values:
         if i != float("-inf"):
             print("".join((["-"] * int(i))))
         else:
@@ -91,6 +94,58 @@ def equalizer(castedData):
     return np.rint(matrix)
 
 
+startTime = time.time()
+endTime = time.time()
+def isMusicPlaying(values):
+    global startTime, endTime
+    avg = np.mean(values)
+    now = time.time()
+    if avg > ON_OFF_THRESHOLD:
+        if startTime +  MUSIC_START_THRESHOLD < now:
+            endTime = now
+            return True
+        else:
+            return False
+    else: 
+        if endTime +  MUSIC_END_THRESHOLD < now:
+            startTime = now
+            return False
+        else:
+            return True
+
+
+bassWindow = deque([35.0] * 512)
+smoothingWindow = deque([False] * 5)
+def bassline(values):
+    prev = mean(bassWindow)
+    new = values[0] + values [1]
+    bassWindow.append(new)
+    bassWindow.popleft()
+    if (new - 4.0 > prev):
+        smoothingWindow.append(True)
+    else: 
+        smoothingWindow.append(False)
+    smoothingWindow.popleft()
+    
+    res = True
+    for i in smoothingWindow:
+        res = i and res
+
+    return res
+
+
+TIMING_SAMPLES = 1000
+timingSmoother = deque([0.01] * TIMING_SAMPLES)
+timingAverage = 0.01
+def measureTiming(start, end):
+    global timingSmoother, timingAverage
+    new = end - start
+    timingSmoother.append(new)
+    old = timingSmoother.popleft()
+    timingAverage = timingAverage - (old/TIMING_SAMPLES)
+    timingAverage = timingAverage + (new/TIMING_SAMPLES)
+    return timingAverage
+
 def exit():
     stream.stop_stream()
     stream.close()
@@ -102,7 +157,11 @@ atexit.register(exit)
 
 frequency_limits = calculate_channel_frequency()
 
+
 while True:
+
+    cycleStart = time.time()
+
     data = stream.read(CHUNK_SIZE)
     if sys.byteorder == "big":
         data = audioop.byteswap(data, p.get_sample_size(SAMPLE_FORMAT))
@@ -110,4 +169,19 @@ while True:
     casted = np.asarray(memoryview(data).cast("B"))
     values = equalizer(casted)
 
+    os.system("clear")
+    if bassline(values):
+        print("Boom")
+    else:
+        print("-")
+
+    if isMusicPlaying(values):
+        print("Now Playing")
+    else:
+        print("Waiting")
+    print(values)
+
     display(values)
+
+    cycleEnd = time.time()
+    print(measureTiming(cycleStart, cycleEnd))
