@@ -18,7 +18,7 @@ MIN_FREQUENCY = 20
 MAX_FREQUENCY = 15000
 MUSIC_START_THRESHOLD = 2
 MUSIC_END_THRESHOLD = 2
-ON_OFF_THRESHOLD = 30
+ON_OFF_THRESHOLD = 38.0
 
 channels = 1
 fs = 44100  # Record at 44100 samples per second
@@ -110,7 +110,7 @@ def isMusicPlaying(values):
             return True
 
 BASS_SAMPLES = 320
-BASS_OUTPUT_SAMPLES = 12
+BASS_OUTPUT_SAMPLES = 8
 bassWindow = deque([35.0] * BASS_SAMPLES)
 bassAvg = 35.0
 smoothingWindow = deque([35.0] * BASS_OUTPUT_SAMPLES)
@@ -210,7 +210,7 @@ basslineDidHit = True
 while True:
     cycleStart = time.time()
 
-    data = stream.read(CHUNK_SIZE)
+    data = stream.read(CHUNK_SIZE, exception_on_overflow = False)
     if sys.byteorder == "big":
         data = audioop.byteswap(data, p.get_sample_size(SAMPLE_FORMAT))
 
@@ -233,7 +233,6 @@ while True:
     else:
         # sc.reset()
         print("Waiting")
-
 
     display(values)
 
