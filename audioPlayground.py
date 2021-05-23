@@ -1,20 +1,15 @@
+import requests
 from collections import deque
-from functools import cache
-import matplotlib.pyplot as plt
 import pyaudio
 import wave
 import sys
-from scipy.io import wavfile  # get the api
-from scipy.fftpack import fft
-import matplotlib.pyplot as plt
-from scipy.fftpack import fft
-from scipy.io import wavfile  # get the api
 from statistics import mean, stdev
 import numpy as np
 import os
 import atexit
 import time
-
+import json
+import base64
 
 CHUNK_SIZE = 1024
 GPIO_CHANNELS = 8
@@ -113,26 +108,72 @@ def isMusicPlaying(values):
         else:
             return True
 
-
-bassWindow = deque([35.0] * 512)
-smoothingWindow = deque([False] * 5)
+BASS_SAMPLES = 320
+BASS_OUTPUT_SAMPLES = 12
+bassWindow = deque([35.0] * BASS_SAMPLES)
+bassAvg = 35.0
+smoothingWindow = deque([35.0] * BASS_OUTPUT_SAMPLES)
+BASS_TRESHOLD = 6.0
 def bassline(values):
-    prev = mean(bassWindow)
+    global bassAvg, bassWindow
     new = values[0] + values [1]
     bassWindow.append(new)
-    bassWindow.popleft()
-    if (new - 4.0 > prev):
-        smoothingWindow.append(True)
-    else: 
-        smoothingWindow.append(False)
+    out = bassWindow.popleft()
+    bassAvg = bassAvg + ((new - out)/BASS_SAMPLES)
+
+
+    smoothingWindow.append(new - bassAvg)
     smoothingWindow.popleft()
     
-    res = True
-    for i in smoothingWindow:
-        res = i and res
+    if stdev(smoothingWindow) > BASS_TRESHOLD:
+        return True
+    
+    return False
 
-    return res
 
+class SongClassifier:
+    SAMPLE_SIZE = 100
+    samples = deque()
+    songData = None
+
+    def reset(self):
+        self.samples.clear()
+        self.songData = None
+    
+    def sample(self, data):
+        self.samples.append(data)
+        if len(self.samples) > self.SAMPLE_SIZE:
+            self.samples.popleft()
+            self.classify()
+
+    def getGenre(self):
+        try:
+            if self.songData:
+                return self.songData['track']['genres']['primary']
+            else:
+                return ''
+        except:
+            return ''
+
+    def classify(self):
+        print('classifiying song')
+
+        values = bytearray()
+        
+        for i in self.samples:
+            values.extend(i)
+
+        base64EncodedStr = base64.b64encode(values)
+        url = "https://shazam.p.rapidapi.com/songs/detect"
+        payload = base64EncodedStr
+        headers = {
+            'content-type': "text/plain",
+            'x-rapidapi-key': "f42136d023msh1c820c2920202f4p1b5b4ajsnc04e9452c380",
+            'x-rapidapi-host': "shazam.p.rapidapi.com"
+            }
+
+        response = requests.request("POST", url, data=payload, headers=headers)
+        self.songData = json.loads(response.text)
 
 TIMING_SAMPLES = 1000
 timingSmoother = deque([0.01] * TIMING_SAMPLES)
@@ -158,28 +199,37 @@ atexit.register(exit)
 frequency_limits = calculate_channel_frequency()
 
 
-while True:
+sc = SongClassifier()
+nowPlaying = False
+basslineDidHit = True
 
+while True:
     cycleStart = time.time()
 
     data = stream.read(CHUNK_SIZE)
     if sys.byteorder == "big":
         data = audioop.byteswap(data, p.get_sample_size(SAMPLE_FORMAT))
 
+
     casted = np.asarray(memoryview(data).cast("B"))
     values = equalizer(casted)
+    nowPlaying = isMusicPlaying(values)
+    basslineDidHit = bassline(values)
+    currentSongGenre = sc.getGenre()
 
     os.system("clear")
-    if bassline(values):
+    if basslineDidHit:
         print("Boom")
     else:
         print("-")
 
-    if isMusicPlaying(values):
+    if nowPlaying:
+        # sc.sample(data)
         print("Now Playing")
     else:
+        # sc.reset()
         print("Waiting")
-    print(values)
+
 
     display(values)
 
