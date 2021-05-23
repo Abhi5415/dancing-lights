@@ -1,7 +1,6 @@
 import requests
 from collections import deque
 import pyaudio
-import wave
 import sys
 from statistics import mean, stdev
 import numpy as np
@@ -24,7 +23,7 @@ ON_OFF_THRESHOLD = 30
 channels = 1
 fs = 44100  # Record at 44100 samples per second
 sample_rate = 44100
-seconds = 0.1
+seconds = 0.01
 
 p = pyaudio.PyAudio()  # Create an interface to PortAudio
 
@@ -91,18 +90,20 @@ def equalizer(castedData):
 
 startTime = time.time()
 endTime = time.time()
+
+
 def isMusicPlaying(values):
     global startTime, endTime
     avg = np.mean(values)
     now = time.time()
     if avg > ON_OFF_THRESHOLD:
-        if startTime +  MUSIC_START_THRESHOLD < now:
+        if startTime + MUSIC_START_THRESHOLD < now:
             endTime = now
             return True
         else:
             return False
-    else: 
-        if endTime +  MUSIC_END_THRESHOLD < now:
+    else:
+        if endTime + MUSIC_END_THRESHOLD < now:
             startTime = now
             return False
         else:
@@ -178,14 +179,17 @@ class SongClassifier:
 TIMING_SAMPLES = 1000
 timingSmoother = deque([0.01] * TIMING_SAMPLES)
 timingAverage = 0.01
+
+
 def measureTiming(start, end):
     global timingSmoother, timingAverage
     new = end - start
     timingSmoother.append(new)
     old = timingSmoother.popleft()
-    timingAverage = timingAverage - (old/TIMING_SAMPLES)
-    timingAverage = timingAverage + (new/TIMING_SAMPLES)
+    timingAverage = timingAverage - (old / TIMING_SAMPLES)
+    timingAverage = timingAverage + (new / TIMING_SAMPLES)
     return timingAverage
+
 
 def exit():
     stream.stop_stream()

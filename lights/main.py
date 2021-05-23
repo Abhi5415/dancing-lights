@@ -1,6 +1,17 @@
-from cfg import strip
+# from cfg import strip
+import time
 from panel import Panel
 
-p = Panel((0, 8))
-p.setPanel((255, 255, 255), 0)
-p.setPanel((128, 128, 128), 0)
+p = Panel((0, 89))
+p.colorShiftRate = 0.001
+
+
+def update():
+    p.update()
+
+
+p.setPanel((0, 0, 0))
+while True:
+    update()
+    p.setPanel((255, 255, 255))
+    time.sleep(0.1)
