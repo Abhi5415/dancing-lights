@@ -1,19 +1,14 @@
 from collections import deque
-from functools import cache
-import matplotlib.pyplot as plt
+
 import pyaudio
-import wave
 import sys
-from scipy.io import wavfile  # get the api
-from scipy.fftpack import fft
-import matplotlib.pyplot as plt
-from scipy.fftpack import fft
-from scipy.io import wavfile  # get the api
-from statistics import mean, stdev
+from statistics import mean
 import numpy as np
 import os
 import atexit
 import time
+
+# from main import bounce
 
 
 CHUNK_SIZE = 1024
@@ -96,18 +91,20 @@ def equalizer(castedData):
 
 startTime = time.time()
 endTime = time.time()
+
+
 def isMusicPlaying(values):
     global startTime, endTime
     avg = np.mean(values)
     now = time.time()
     if avg > ON_OFF_THRESHOLD:
-        if startTime +  MUSIC_START_THRESHOLD < now:
+        if startTime + MUSIC_START_THRESHOLD < now:
             endTime = now
             return True
         else:
             return False
-    else: 
-        if endTime +  MUSIC_END_THRESHOLD < now:
+    else:
+        if endTime + MUSIC_END_THRESHOLD < now:
             startTime = now
             return False
         else:
@@ -116,17 +113,19 @@ def isMusicPlaying(values):
 
 bassWindow = deque([35.0] * 512)
 smoothingWindow = deque([False] * 5)
+
+
 def bassline(values):
     prev = mean(bassWindow)
-    new = values[0] + values [1]
+    new = values[0] + values[1]
     bassWindow.append(new)
     bassWindow.popleft()
-    if (new - 4.0 > prev):
+    if new - 4.0 > prev:
         smoothingWindow.append(True)
-    else: 
+    else:
         smoothingWindow.append(False)
     smoothingWindow.popleft()
-    
+
     res = True
     for i in smoothingWindow:
         res = i and res
@@ -137,14 +136,17 @@ def bassline(values):
 TIMING_SAMPLES = 1000
 timingSmoother = deque([0.01] * TIMING_SAMPLES)
 timingAverage = 0.01
+
+
 def measureTiming(start, end):
     global timingSmoother, timingAverage
     new = end - start
     timingSmoother.append(new)
     old = timingSmoother.popleft()
-    timingAverage = timingAverage - (old/TIMING_SAMPLES)
-    timingAverage = timingAverage + (new/TIMING_SAMPLES)
+    timingAverage = timingAverage - (old / TIMING_SAMPLES)
+    timingAverage = timingAverage + (new / TIMING_SAMPLES)
     return timingAverage
+
 
 def exit():
     stream.stop_stream()
@@ -160,28 +162,30 @@ frequency_limits = calculate_channel_frequency()
 
 while True:
 
-    cycleStart = time.time()
+    # cycleStart = time.time()
 
     data = stream.read(CHUNK_SIZE)
-    if sys.byteorder == "big":
-        data = audioop.byteswap(data, p.get_sample_size(SAMPLE_FORMAT))
+    # if sys.byteorder == "big":
+    #     data = audioop.byteswap(data, p.get_sample_size(SAMPLE_FORMAT))
 
-    casted = np.asarray(memoryview(data).cast("B"))
-    values = equalizer(casted)
+    # casted = np.asarray(memoryview(data).cast("B"))
+    # values = equalizer(casted)
 
-    os.system("clear")
-    if bassline(values):
-        print("Boom")
-    else:
-        print("-")
+    # # os.system("clear")
+    # if bassline(values):
+    #     print("Boom")
+    #     # bounce(True)
+    # else:
+    #     # bounce(False)
+    #     print("-")
 
-    if isMusicPlaying(values):
-        print("Now Playing")
-    else:
-        print("Waiting")
-    print(values)
+    # if isMusicPlaying(values):
+    #     print("Now Playing")
+    # else:
+    #     print("Waiting")
+    # print(values)
 
-    display(values)
+    # # display(values)
 
-    cycleEnd = time.time()
-    print(measureTiming(cycleStart, cycleEnd))
+    # cycleEnd = time.time()
+    # print(measureTiming(cycleStart, cycleEnd))
