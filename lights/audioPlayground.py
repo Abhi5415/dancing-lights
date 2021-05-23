@@ -24,7 +24,7 @@ ON_OFF_THRESHOLD = 30
 channels = 1
 fs = 44100  # Record at 44100 samples per second
 sample_rate = 44100
-seconds = 0.1
+seconds = 0.01
 
 p = pyaudio.PyAudio()  # Create an interface to PortAudio
 
