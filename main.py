@@ -117,7 +117,7 @@ bassWindow = deque([35.0] * BASS_SAMPLES)
 bassAvg = 35.0
 smoothingWindow = deque([35.0] * BASS_OUTPUT_SAMPLES)
 BASS_TRESHOLD = 4.0
-BASS_STD_TRESHOLD = 5.0
+BASS_STD_TRESHOLD = 20.0
 
 
 def bassline(values):
@@ -130,8 +130,8 @@ def bassline(values):
     smoothingWindow.append(new - bassAvg)
     smoothingWindow.popleft()
 
-    print(stdev(smoothingWindow), mean(smoothingWindow))
-    if stdev(smoothingWindow) > BASS_STD_TRESHOLD and mean(smoothingWindow) > 0.0:
+    print(variance(smoothingWindow), mean(smoothingWindow))
+    if variance(smoothingWindow) > BASS_STD_TRESHOLD and mean(smoothingWindow) > 0.0:
         return True
 
     return False
