@@ -2,13 +2,15 @@ import requests
 from collections import deque
 import pyaudio
 import sys
-from statistics import mean, stdev
+from statistics import mean, stdev, variance
 import numpy as np
 import os
 import atexit
 import time
 import json
 import base64
+from panelController import bassLight, rainbowLight, panels
+from cfg import strip
 
 CHUNK_SIZE = 1024
 GPIO_CHANNELS = 8
@@ -18,7 +20,7 @@ MIN_FREQUENCY = 20
 MAX_FREQUENCY = 15000
 MUSIC_START_THRESHOLD = 2
 MUSIC_END_THRESHOLD = 2
-ON_OFF_THRESHOLD = 38.0
+ON_OFF_THRESHOLD = 35.0
 
 channels = 1
 fs = 44100  # Record at 44100 samples per second
@@ -38,7 +40,6 @@ stream = p.open(
 
 
 def display(values):
-
     for i in values:
         if i != float("-inf"):
             print("".join((["-"] * int(i))))
@@ -109,26 +110,30 @@ def isMusicPlaying(values):
         else:
             return True
 
-BASS_SAMPLES = 320
-BASS_OUTPUT_SAMPLES = 8
+
+BASS_SAMPLES = 50
+BASS_OUTPUT_SAMPLES = 6
 bassWindow = deque([35.0] * BASS_SAMPLES)
 bassAvg = 35.0
 smoothingWindow = deque([35.0] * BASS_OUTPUT_SAMPLES)
-BASS_TRESHOLD = 6.0
+BASS_TRESHOLD = 4.0
+BASS_STD_TRESHOLD = 5.0
+
+
 def bassline(values):
     global bassAvg, bassWindow
-    new = values[0] + values [1]
+    new = values[0] + values[1]
     bassWindow.append(new)
     out = bassWindow.popleft()
-    bassAvg = bassAvg + ((new - out)/BASS_SAMPLES)
-
+    bassAvg = bassAvg + ((new - out) / BASS_SAMPLES)
 
     smoothingWindow.append(new - bassAvg)
     smoothingWindow.popleft()
-    
-    if stdev(smoothingWindow) > BASS_TRESHOLD:
+
+    print(stdev(smoothingWindow), mean(smoothingWindow))
+    if stdev(smoothingWindow) > BASS_STD_TRESHOLD and mean(smoothingWindow) > 0.0:
         return True
-    
+
     return False
 
 
@@ -140,7 +145,7 @@ class SongClassifier:
     def reset(self):
         self.samples.clear()
         self.songData = None
-    
+
     def sample(self, data):
         self.samples.append(data)
         if len(self.samples) > self.SAMPLE_SIZE:
@@ -150,17 +155,17 @@ class SongClassifier:
     def getGenre(self):
         try:
             if self.songData:
-                return self.songData['track']['genres']['primary']
+                return self.songData["track"]["genres"]["primary"]
             else:
-                return ''
+                return ""
         except:
-            return ''
+            return ""
 
     def classify(self):
-        print('classifiying song')
+        print("classifiying song")
 
         values = bytearray()
-        
+
         for i in self.samples:
             values.extend(i)
 
@@ -168,13 +173,14 @@ class SongClassifier:
         url = "https://shazam.p.rapidapi.com/songs/detect"
         payload = base64EncodedStr
         headers = {
-            'content-type': "text/plain",
-            'x-rapidapi-key': "f42136d023msh1c820c2920202f4p1b5b4ajsnc04e9452c380",
-            'x-rapidapi-host': "shazam.p.rapidapi.com"
-            }
+            "content-type": "text/plain",
+            "x-rapidapi-key": "f42136d023msh1c820c2920202f4p1b5b4ajsnc04e9452c380",
+            "x-rapidapi-host": "shazam.p.rapidapi.com",
+        }
 
         response = requests.request("POST", url, data=payload, headers=headers)
         self.songData = json.loads(response.text)
+
 
 TIMING_SAMPLES = 1000
 timingSmoother = deque([0.01] * TIMING_SAMPLES)
@@ -206,14 +212,16 @@ frequency_limits = calculate_channel_frequency()
 sc = SongClassifier()
 nowPlaying = False
 basslineDidHit = True
+mode = "rainbow"
+idx = 0
+
 
 while True:
     cycleStart = time.time()
 
-    data = stream.read(CHUNK_SIZE, exception_on_overflow = False)
+    data = stream.read(CHUNK_SIZE, exception_on_overflow=False)
     if sys.byteorder == "big":
         data = audioop.byteswap(data, p.get_sample_size(SAMPLE_FORMAT))
-
 
     casted = np.asarray(memoryview(data).cast("B"))
     values = equalizer(casted)
@@ -228,13 +236,18 @@ while True:
         print("-")
 
     if nowPlaying:
-        # sc.sample(data)
         print("Now Playing")
-    else:
-        # sc.reset()
-        print("Waiting")
+        # sc.sample(data)
 
     display(values)
 
+    if nowPlaying:
+        bassLight(basslineDidHit)
+
+    for i in panels:
+        i.update()
+
+    strip.show()
+    # timer
     cycleEnd = time.time()
     print(measureTiming(cycleStart, cycleEnd))
