@@ -36,10 +36,10 @@ def rainbowLight(j):
 def bassLight(drop: bool):
     if drop:
         for i in panels:
-            i.setColor([255, 255, 255], 0.9)
+            i.setColor([180, 180, 180], 0.9)
     else:
         for i in panels:
-            i.setColor([20, 20, 20], 0.03)
+            i.setColor([20, 20, 20], 0.01)
 
 
 # for i in panels:

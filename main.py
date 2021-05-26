@@ -22,7 +22,7 @@ MUSIC_START_THRESHOLD = 2
 MUSIC_END_THRESHOLD = 2
 ON_OFF_THRESHOLD = 35.0
 
-channels = 1
+channels = 2
 fs = 44100  # Record at 44100 samples per second
 sample_rate = 44100
 seconds = 0.01
@@ -40,6 +40,7 @@ stream = p.open(
 
 
 def display(values):
+    print(values)
     for i in values:
         if i != float("-inf"):
             print("".join((["-"] * int(i))))
@@ -84,6 +85,7 @@ def equalizer(castedData):
                     ) : 1
                 ]
             )
+            + 1.0
         )
 
     return np.rint(matrix)
@@ -111,13 +113,13 @@ def isMusicPlaying(values):
             return True
 
 
-BASS_SAMPLES = 50
-BASS_OUTPUT_SAMPLES = 6
+BASS_SAMPLES = 100
+BASS_OUTPUT_SAMPLES = 4
 bassWindow = deque([35.0] * BASS_SAMPLES)
 bassAvg = 35.0
 smoothingWindow = deque([35.0] * BASS_OUTPUT_SAMPLES)
 BASS_TRESHOLD = 4.0
-BASS_STD_TRESHOLD = 20.0
+BASS_STD_TRESHOLD = 25.0
 
 
 def bassline(values):
@@ -130,7 +132,7 @@ def bassline(values):
     smoothingWindow.append(new - bassAvg)
     smoothingWindow.popleft()
 
-    print(variance(smoothingWindow), mean(smoothingWindow))
+    # print(variance(smoothingWindow), mean(smoothingWindow))
     if variance(smoothingWindow) > BASS_STD_TRESHOLD and mean(smoothingWindow) > 0.0:
         return True
 
@@ -182,7 +184,7 @@ class SongClassifier:
         self.songData = json.loads(response.text)
 
 
-TIMING_SAMPLES = 1000
+TIMING_SAMPLES = 100
 timingSmoother = deque([0.01] * TIMING_SAMPLES)
 timingAverage = 0.01
 
@@ -225,24 +227,27 @@ while True:
 
     casted = np.asarray(memoryview(data).cast("B"))
     values = equalizer(casted)
+
+    # os.system("clear")
     nowPlaying = isMusicPlaying(values)
     basslineDidHit = bassline(values)
     currentSongGenre = sc.getGenre()
 
-    os.system("clear")
-    if basslineDidHit:
-        print("Boom")
-    else:
-        print("-")
+    # if basslineDidHit:
+    #     print("Boom")
+    # else:
+    #     print("-")
 
-    if nowPlaying:
-        print("Now Playing")
-        # sc.sample(data)
+    # if nowPlaying:
+    #     print("Now Playing")
+    #     # sc.sample(data)
 
-    display(values)
+    # display(values)
 
-    if nowPlaying:
-        bassLight(basslineDidHit)
+    # if nowPlaying:
+    #     bassLight(basslineDidHit)
+
+    bassLight(basslineDidHit)
 
     for i in panels:
         i.update()
